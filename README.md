@@ -137,7 +137,7 @@ Important backend modules:
 
 ### 1) Clone and enter project
 ```bash
-git clone <https://github.com/GaneshGMgr/Custmor_Support_Agent.git>
+git clone https://github.com/GaneshGMgr/Custmor_Support_Agent.git
 cd Custmor_Support_Agent
 ```
 
