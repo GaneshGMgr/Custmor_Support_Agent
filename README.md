@@ -10,6 +10,25 @@ The project uses:
 - IMAP/SMTP for inbox polling and email sending
 - APScheduler for recurring background jobs
 
+## Architecture
+
+![Workflow](client_side/static/media/email_workflow.png)
+
+## UI Preview
+
+### 🧪 Testing View
+![Testing View](client_side/static/media/client_side_view/testing_view.png)
+
+### 📥 Inbox
+![Inbox](client_side/static/media/client_side_view/inbox.png)
+
+### ✏️ Edit Response
+![Edit Response](client_side/static/media/client_side_view/edit_response.png)
+
+### 🔁 Follow-ups
+![Follow Ups](client_side/static/media/client_side_view/pngfollows_ups.png)
+
+
 ## What This Project Does
 
 The system continuously monitors a support inbox and processes new messages through a multi-step AI workflow:
@@ -118,7 +137,7 @@ Important backend modules:
 
 ### 1) Clone and enter project
 ```bash
-git clone <your-repo-url>
+git clone <https://github.com/GaneshGMgr/Custmor_Support_Agent.git>
 cd Custmor_Support_Agent
 ```
 
