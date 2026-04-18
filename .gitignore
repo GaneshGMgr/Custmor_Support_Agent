@@ -54,3 +54,4 @@ Thumbs.db
 # Local-only scripts
 # =========================
 folderScanner.py
+fix_prompts.py
