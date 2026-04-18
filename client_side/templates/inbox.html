@@ -1,0 +1,767 @@
+{% extends "base.html" %}
+
+{% block title %}Inbox — Support Command Center{% endblock %}
+
+{% block content %}
+
+<div class="inbox-wrap">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="page-title-block">
+      <h1>Support <span>Inbox</span></h1>
+      <p class="page-subtitle">Command Center · AI-Powered Triage</p>
+    </div>
+    <div class="live-indicator">
+      <span class="live-dot"></span>
+      SYSTEM LIVE
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card total">
+      <div class="stat-label">Total</div>
+      <div class="stat-value" id="statsTotal">—</div>
+    </div>
+    <div class="stat-card pending">
+      <div class="stat-label">Pending</div>
+      <div class="stat-value" id="statsPending">—</div>
+    </div>
+    <div class="stat-card processing">
+      <div class="stat-label">Processing</div>
+      <div class="stat-value" id="statsProcessing">—</div>
+    </div>
+    <div class="stat-card responded">
+      <div class="stat-label">Responded</div>
+      <div class="stat-value" id="statsResponded">—</div>
+    </div>
+    <div class="stat-card failed">
+      <div class="stat-label">Failed</div>
+      <div class="stat-value" id="statsFailed">—</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="searchInput" placeholder="Search sender, subject…" />
+    </div>
+
+    <select id="statusFilter" class="filter-select">
+      <option value="">All Statuses</option>
+      <option value="pending">Pending</option>
+      <option value="processing">Processing</option>
+      <option value="awaiting_review">Awaiting Review</option>
+      <option value="responded">Responded</option>
+      <option value="failed">Failed</option>
+      <option value="skipped">Skipped</option>
+      <option value="archived">Archived</option>
+    </select>
+
+    <div class="auto-refresh-toggle" id="autoRefreshToggle">
+      <div class="toggle-switch"></div>
+      <span>Auto-refresh</span>
+    </div>
+
+    <button class="btn btn-primary" id="refreshButton">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+      Refresh
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div id="loadingState" class="loading-wrap">
+      <div class="loader-ring"></div>
+      <span class="loading-text">FETCHING EMAILS…</span>
+    </div>
+
+    <table id="emailTable" style="display:none;">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>From</th>
+          <th>Subject</th>
+          <th>Category</th>
+          <th>Priority</th>
+          <th>Status</th>
+          <th>Received</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="emailTableBody"></tbody>
+    </table>
+
+    <div id="emptyState" class="empty-state" style="display:none;">
+      <div class="empty-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d4f63" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </div>
+      <h3>No emails found</h3>
+      <p>No emails match your current filters, or the inbox is empty.</p>
+    </div>
+
+    <div class="pagination-bar" id="paginationBar" style="display:none;">
+      <span class="pagination-info" id="pageInfo">—</span>
+      <div class="page-btns" id="pageButtons"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────────────────────────── Detail Modal ───────────────────────────── -->
+<div class="modal-backdrop" id="detailModal">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <div class="modal-title">
+        <div class="modal-title-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </div>
+        Email Detail
+      </div>
+      <button class="modal-close" id="closeDetailButton">×</button>
+    </div>
+    <div class="modal-body" id="detailContent"></div>
+  </div>
+</div>
+
+<!-- ───────────────────────────── Edit Modal ─────────────────────────────── -->
+<div class="modal-backdrop" id="editModal">
+  <div class="modal-panel edit-modal-panel">
+
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-title">
+        <div class="modal-title-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </div>
+        <div>
+          Edit Response
+          <span id="editModalEmailMeta" style="display:block;font-size:0.72rem;font-weight:400;opacity:0.5;margin-top:1px;letter-spacing:0.02em;"></span>
+        </div>
+      </div>
+      <button class="modal-close" id="closeEditModalBtn">×</button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body edit-modal-body">
+
+      <!-- Customer message (read-only) -->
+      <div class="edit-section">
+        <div class="edit-section-label">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Customer Message
+        </div>
+        <div class="edit-readonly-box" id="editModalCustomerMsg">—</div>
+      </div>
+
+      <!-- Editable response textarea -->
+      <div class="edit-section">
+        <div class="edit-section-label" style="justify-content:space-between;">
+          <span style="display:flex;align-items:center;gap:6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            AI-Generated Response
+          </span>
+          <span id="editCharCount" class="edit-char-count">0 chars</span>
+        </div>
+        <textarea
+          id="editModalTextarea"
+          class="edit-textarea"
+          placeholder="Edit the response here…"
+          oninput="document.getElementById('editCharCount').textContent=this.value.length+' chars'"
+        ></textarea>
+      </div>
+
+      <!-- Warning banner -->
+      <div class="edit-warning-banner">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>Submitting will send this edited response directly to the customer. Review carefully before approving.</span>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="edit-modal-footer">
+      <button class="edit-btn-cancel" onclick="closeEditModal()">Cancel</button>
+      <div style="display:flex;gap:8px;">
+        <button class="edit-btn-approve" onclick="submitFromEditModal('approve')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Approve only
+        </button>
+        <button class="edit-btn-submit" id="editSubmitBtn" onclick="submitFromEditModal('edit')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Submit edit
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Edit Modal Styles -->
+<style>
+  /* ── Edit modal sizing ── */
+  .edit-modal-panel {
+    max-width: 680px;
+    width: 95%;
+  }
+
+  /* ── Modal body padding override for edit ── */
+  .edit-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 22px 24px;
+  }
+
+  /* ── Section wrapper ── */
+  .edit-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ── Section label row ── */
+  .edit-section-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted, #5a7a96);
+  }
+
+  /* ── Read-only customer message box ── */
+  .edit-readonly-box {
+    background: var(--bg-muted, #0d1821);
+    border: 1px solid var(--border, #1e2d3d);
+    border-radius: 8px;
+    padding: 12px 15px;
+    font-size: 0.82rem;
+    line-height: 1.65;
+    color: var(--text-secondary, #7a9ab5);
+    max-height: 110px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* ── Textarea ── */
+  .edit-textarea {
+    width: 100%;
+    min-height: 185px;
+    resize: vertical;
+    font-size: 0.83rem;
+    line-height: 1.7;
+    padding: 13px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border, #1e2d3d);
+    background: var(--bg-card, #0b1623);
+    color: var(--text-primary, #c4d5e4);
+    font-family: inherit;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .edit-textarea:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  }
+
+  /* ── Char count ── */
+  .edit-char-count {
+    font-size: 0.72rem;
+    color: var(--text-muted, #5a7a96);
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  /* ── Warning banner ── */
+  .edit-warning-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 14px;
+    background: rgba(234, 179, 8, 0.07);
+    border: 1px solid rgba(234, 179, 8, 0.22);
+    border-radius: 8px;
+    color: #ca8a04;
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  /* ── Footer ── */
+  .edit-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    border-top: 1px solid var(--border, #1e2d3d);
+    background: var(--bg-muted, #0d1821);
+    border-radius: 0 0 14px 14px;
+  }
+
+  /* ── Footer buttons ── */
+  .edit-btn-cancel {
+    font-size: 0.8rem;
+    padding: 8px 16px;
+    border-radius: 7px;
+    border: 1px solid var(--border, #1e2d3d);
+    background: transparent;
+    color: var(--text-secondary, #8aa0b4);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .edit-btn-cancel:hover {
+    background: var(--bg-card, #0b1623);
+    color: var(--text-primary, #c4d5e4);
+  }
+
+  .edit-btn-approve {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    padding: 8px 16px;
+    border-radius: 7px;
+    border: 1px solid var(--border, #1e2d3d);
+    background: transparent;
+    color: var(--text-primary, #c4d5e4);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .edit-btn-approve:hover {
+    background: rgba(34, 197, 94, 0.08);
+    border-color: rgba(34, 197, 94, 0.35);
+    color: #4ade80;
+  }
+
+  .edit-btn-submit {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 9px 18px;
+    border-radius: 7px;
+    border: none;
+    background: #3b82f6;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .edit-btn-submit:hover {
+    background: #2563eb;
+  }
+  .edit-btn-submit:active {
+    transform: scale(0.97);
+  }
+  .edit-btn-submit:disabled {
+    background: #1e3a5f;
+    color: #4a6a8a;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* ── Spinner inside submit button ── */
+  .edit-btn-submit .btn-spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: none;
+  }
+  .edit-btn-submit.loading .btn-spinner { display: block; }
+  .edit-btn-submit.loading .btn-icon { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const state = {
+    page: 1,
+    perPage: 10,
+    status: "",
+    emails: [],
+    total: 0,
+    pages: 1,
+    autoRefresh: false,
+    autoRefreshTimer: null,
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  function escapeHtml(v) {
+    return String(v ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function formatDate(raw) {
+    if (!raw) return "—";
+    try {
+      const d = new Date(raw);
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+        + " · " + d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    } catch { return raw; }
+  }
+
+  function getCatClass(cat) {
+    const map = { billing: "billing", password_reset: "password_reset", api_errors: "api_errors", delivery_issues: "delivery_issues" };
+    return map[cat] || "other";
+  }
+
+  function getCatLabel(cat) {
+    if (!cat) return "—";
+    const map = { billing: "Billing", password_reset: "Password Reset", api_errors: "API Error", delivery_issues: "Delivery", other: "Other" };
+    return map[cat] || cat;
+  }
+
+  function getPriorityDot(p) {
+    const cls = (p || "").toLowerCase();
+    return `<span class="priority-wrap"><span class="priority-dot ${cls}"></span>${escapeHtml(p || "—")}</span>`;
+  }
+
+  function getStatusPill(s) {
+    const cls = (s || "").toLowerCase().replace(/ /g, "_");
+    const labels = {
+      pending: "Pending", processing: "Processing", awaiting_review: "Review",
+      responded: "Responded", failed: "Failed", skipped: "Skipped", archived: "Archived"
+    };
+    return `<span class="status-pill ${cls}"><span class="status-pulse"></span>${escapeHtml(labels[cls] || s)}</span>`;
+  }
+
+  function buildActions(email) {
+    const s = (email.status || "").toLowerCase();
+    const view = `<button class="act-btn view" onclick="showEmailDetail(${email.id})">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>View</button>`;
+
+    if (s === "awaiting_review") {
+      return `<div class="action-group review-actions" id="actions-${email.id}">
+        <button class="act-btn approve" onclick="submitQuickDecision(${email.id},'approve')">✓ Approve</button>
+        <button class="act-btn edit" onclick="showInlineEdit(${email.id})">✎ Edit</button>
+        <button class="act-btn reject" onclick="submitQuickDecision(${email.id},'reject')">✕ Reject</button>
+        ${view}
+      </div>`;
+    }
+    if (s === "processing") {
+      return `<div class="action-group"><span class="status-badge-sm in-progress">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>In Progress</span>${view}</div>`;
+    }
+    if (s === "responded") {
+      return `<div class="action-group"><span class="status-badge-sm completed">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Completed</span>${view}</div>`;
+    }
+    if (s === "archived") {
+      return `<div class="action-group"><span class="status-badge-sm closed">Closed</span>${view}</div>`;
+    }
+    return `<div class="action-group">${view}</div>`;
+  }
+
+  function renderRows(emails) {
+    const tbody = $("emailTableBody");
+    if (!emails.length) return;
+    tbody.innerHTML = emails.map((e, i) => `
+      <tr id="row-${e.id}" style="animation-delay:${i * 30}ms">
+        <td class="id-col">#${e.id}</td>
+        <td class="sender-col" title="${escapeHtml(e.sender)}">${escapeHtml(e.sender)}</td>
+        <td class="subject-col" title="${escapeHtml(e.subject)}">${escapeHtml(e.subject)}</td>
+        <td><span class="cat-badge ${getCatClass(e.category)}">${escapeHtml(getCatLabel(e.category))}</span></td>
+        <td>${getPriorityDot(e.priority)}</td>
+        <td>${getStatusPill(e.status)}</td>
+        <td class="date-col">${formatDate(e.received_at)}</td>
+        <td>${buildActions(e)}</td>
+      </tr>`).join("");
+  }
+
+  function renderStats() {
+    $("statsTotal").textContent = state.total;
+    $("statsPending").textContent = state.emails.filter(e => e.status === "pending").length;
+    $("statsProcessing").textContent = state.emails.filter(e => e.status === "processing").length;
+    $("statsResponded").textContent = state.emails.filter(e => e.status === "responded").length;
+    $("statsFailed").textContent = state.emails.filter(e => e.status === "failed").length;
+  }
+
+  function renderPagination() {
+    const start = state.total === 0 ? 0 : (state.page - 1) * state.perPage + 1;
+    const end = Math.min(state.page * state.perPage, state.total);
+    $("pageInfo").textContent = `${start}–${end} of ${state.total}`;
+
+    const btns = $("pageButtons");
+    const prev = `<button class="page-btn" onclick="changePage(${state.page - 1})" ${state.page <= 1 ? "disabled" : ""}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>`;
+    const next = `<button class="page-btn" onclick="changePage(${state.page + 1})" ${state.page >= state.pages ? "disabled" : ""}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>`;
+
+    let pageNums = "";
+    for (let p = 1; p <= state.pages; p++) {
+      if (state.pages <= 7 || Math.abs(p - state.page) <= 2 || p === 1 || p === state.pages) {
+        pageNums += `<button class="page-btn ${p === state.page ? 'active' : ''}" onclick="changePage(${p})">${p}</button>`;
+      } else if (Math.abs(p - state.page) === 3) {
+        pageNums += `<span style="color:var(--text-muted);padding:0 4px;font-size:0.8rem;">…</span>`;
+      }
+    }
+
+    btns.innerHTML = prev + pageNums + next;
+  }
+
+  function setView(loading, empty, data) {
+    $("loadingState").style.display = loading ? "flex" : "none";
+    $("emptyState").style.display = empty ? "flex" : "none";
+    $("emailTable").style.display = data ? "table" : "none";
+    $("paginationBar").style.display = data ? "flex" : "none";
+  }
+
+  async function loadEmails() {
+    setView(true, false, false);
+    try {
+      const params = new URLSearchParams({ page: state.page, per_page: state.perPage });
+      if (state.status) params.set("status", state.status);
+      const res = await fetch(`/api/emails?${params}`);
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      state.emails = data.emails || [];
+      state.total = data.total || 0;
+      state.pages = data.pages || 1;
+      if (state.emails.length) {
+        setView(false, false, true);
+        renderRows(state.emails);
+      } else {
+        setView(false, true, false);
+      }
+      renderStats();
+      renderPagination();
+    } catch (err) {
+      console.error(err);
+      setView(false, true, false);
+      $("emptyState").querySelector("p").textContent = "Failed to load emails. Check console for details.";
+    }
+  }
+
+  function changePage(p) {
+    if (p < 1 || p > state.pages) return;
+    state.page = p;
+    loadEmails();
+  }
+
+  async function submitReviewDecision(emailId, decision, editedResponse = null) {
+    const payload = { decision };
+    if (editedResponse !== null) payload.edited_response = editedResponse;
+    const res = await fetch(`/api/emails/${emailId}/review`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+  }
+
+  async function submitQuickDecision(emailId, decision) {
+    try {
+      const actionsEl = $(`actions-${emailId}`);
+      if (actionsEl) actionsEl.style.opacity = "0.5";
+      await submitReviewDecision(emailId, decision);
+      await loadEmails();
+    } catch (err) {
+      console.error(err);
+      alert(`Failed to submit ${decision}.`);
+    }
+  }
+
+  // ─────────────────────── Edit Modal Logic ───────────────────────
+
+  let _editModalEmailId = null;
+
+  async function showInlineEdit(emailId) {
+    try {
+      const res = await fetch(`/api/emails/${emailId}`);
+      if (!res.ok) throw new Error("Failed to load email");
+      const detail = await res.json();
+
+      const existing  = detail?.review?.approved_response || detail?.response?.response_text || "";
+      const customer  = detail?.body || "—";
+      const sender    = detail?.sender ? `From: ${detail.sender}` : "";
+      const category  = detail?.category ? ` · ${getCatLabel(detail.category)}` : "";
+
+      _editModalEmailId = emailId;
+
+      // Populate fields
+      $("editModalCustomerMsg").textContent = customer;
+      $("editModalEmailMeta").textContent   = `Email #${emailId}${sender ? " · " + sender : ""}${category}`;
+
+      const ta = $("editModalTextarea");
+      ta.value = existing;
+      $("editCharCount").textContent = existing.length + " chars";
+
+      // Reset submit button state
+      const submitBtn = $("editSubmitBtn");
+      submitBtn.disabled = false;
+      submitBtn.classList.remove("loading");
+
+      $("editModal").classList.add("open");
+      setTimeout(() => ta.focus(), 120);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to open edit.");
+    }
+  }
+
+  function closeEditModal() {
+    $("editModal").classList.remove("open");
+    _editModalEmailId = null;
+  }
+
+  async function submitFromEditModal(mode) {
+    if (!_editModalEmailId) return;
+
+    const ta     = $("editModalTextarea");
+    const edited = ta.value.trim();
+
+    if (mode === "edit" && !edited) {
+      ta.focus();
+      ta.style.borderColor = "#ef4444";
+      ta.style.boxShadow   = "0 0 0 3px rgba(239,68,68,0.15)";
+      setTimeout(() => {
+        ta.style.borderColor = "";
+        ta.style.boxShadow   = "";
+      }, 1800);
+      return;
+    }
+
+    const submitBtn = $("editSubmitBtn");
+    if (mode === "edit") {
+      submitBtn.disabled = true;
+      submitBtn.classList.add("loading");
+      submitBtn.innerHTML = `<span class="btn-spinner"></span> Submitting…`;
+    }
+
+    try {
+      await submitReviewDecision(
+        _editModalEmailId,
+        mode,
+        mode === "edit" ? edited : null
+      );
+      closeEditModal();
+      await loadEmails();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to submit. Please try again.");
+      submitBtn.disabled = false;
+      submitBtn.classList.remove("loading");
+      submitBtn.innerHTML = `
+        <svg class="btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Submit edit`;
+    }
+  }
+
+  // ─────────────────────── Detail Modal Logic ───────────────────────
+
+  async function showEmailDetail(emailId) {
+    try {
+      const res = await fetch(`/api/emails/${emailId}`);
+      if (!res.ok) throw new Error(`${res.status}`);
+      const d = await res.json();
+      const responseText = d?.review_decision?.edited_response
+        || d?.response?.response_text
+        || d?.review?.approved_response
+        || "No response available yet.";
+
+      $("detailContent").innerHTML = `
+        <div class="detail-field">
+          <label>From</label>
+          <div class="field-value">${escapeHtml(d.sender || "—")}</div>
+        </div>
+        <div class="detail-field">
+          <label>Subject</label>
+          <div class="field-value">${escapeHtml(d.subject || "—")}</div>
+        </div>
+        <div class="detail-grid">
+          <div class="detail-field">
+            <label>Status</label>
+            <div class="field-value">${getStatusPill(d.status)}</div>
+          </div>
+          <div class="detail-field">
+            <label>Received</label>
+            <div class="field-value" style="font-family:var(--font-mono);font-size:0.78rem;">${formatDate(d.received_at)}</div>
+          </div>
+        </div>
+        <div class="detail-field">
+          <label>Customer Message</label>
+          <div class="field-text">${escapeHtml(d.body || "—")}</div>
+        </div>
+        <div class="detail-field">
+          <label>Generated / Sent Response</label>
+          <div class="field-text">${escapeHtml(responseText)}</div>
+        </div>`;
+
+      $("detailModal").classList.add("open");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to load email details.");
+    }
+  }
+
+  // ─────────────────────── Event Listeners ───────────────────────
+
+  // Auto-refresh toggle
+  const arToggle = $("autoRefreshToggle");
+  arToggle.addEventListener("click", () => {
+    state.autoRefresh = !state.autoRefresh;
+    arToggle.classList.toggle("active", state.autoRefresh);
+    if (state.autoRefresh) {
+      state.autoRefreshTimer = setInterval(loadEmails, 15000);
+    } else {
+      clearInterval(state.autoRefreshTimer);
+    }
+  });
+
+  $("refreshButton").addEventListener("click", loadEmails);
+
+  $("statusFilter").addEventListener("change", (e) => {
+    state.status = e.target.value;
+    state.page = 1;
+    loadEmails();
+  });
+
+  // Detail modal close
+  $("closeDetailButton").addEventListener("click", () => $("detailModal").classList.remove("open"));
+  $("detailModal").addEventListener("click", (e) => {
+    if (e.target === $("detailModal")) $("detailModal").classList.remove("open");
+  });
+
+  // Edit modal close
+  $("closeEditModalBtn").addEventListener("click", closeEditModal);
+  $("editModal").addEventListener("click", (e) => {
+    if (e.target === $("editModal")) closeEditModal();
+  });
+
+  // Escape key closes any open modal
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if ($("editModal").classList.contains("open"))   closeEditModal();
+      if ($("detailModal").classList.contains("open")) $("detailModal").classList.remove("open");
+    }
+  });
+
+  // Expose globals
+  window.showEmailDetail     = showEmailDetail;
+  window.submitQuickDecision = submitQuickDecision;
+  window.showInlineEdit      = showInlineEdit;
+  window.submitFromEditModal = submitFromEditModal;
+  window.closeEditModal      = closeEditModal;
+  window.changePage          = changePage;
+
+  loadEmails();
+</script>
+{% endblock %}

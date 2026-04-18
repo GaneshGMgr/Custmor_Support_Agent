@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Test Email - Customer Support Email Agent{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto mt-12">
+  <div class="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
+    <h2 class="text-3xl font-bold text-primary mb-2">Test Email Submission</h2>
+    <p class="text-gray-400 mb-8">
+      Submit a mock customer email to test the agent's classification, knowledge base search, and response generation.
+    </p>
+
+    <!-- Form -->
+    <form id="testEmailForm" class="space-y-6">
+      <!-- Sender Email -->
+      <div>
+        <label for="sender" class="block text-sm font-medium text-gray-300">Sender Email</label>
+        <input
+          type="email"
+          id="sender"
+          name="sender"
+          required
+          placeholder="customer@example.com"
+          class="mt-1 block w-full rounded-lg border-gray-600 bg-gray-900 text-gray-200 shadow-sm focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm px-4 py-3"
+        />
+      </div>
+
+      <!-- Subject -->
+      <div>
+        <label for="subject" class="block text-sm font-medium text-gray-300">Subject</label>
+        <input
+          type="text"
+          id="subject"
+          name="subject"
+          required
+          placeholder="e.g., Can't sync files on my phone"
+          class="mt-1 block w-full rounded-lg border-gray-600 bg-gray-900 text-gray-200 shadow-sm focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm px-4 py-3"
+        />
+      </div>
+
+      <!-- Email Body -->
+      <div>
+        <label for="body" class="block text-sm font-medium text-gray-300">Email Body</label>
+        <textarea
+          id="body"
+          name="body"
+          required
+          rows="8"
+          placeholder="Enter the customer email body here..."
+          class="mt-1 block w-full rounded-lg border-gray-600 bg-gray-900 text-gray-200 shadow-sm focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm px-4 py-3"
+        ></textarea>
+      </div>
+
+      <!-- Submit Button -->
+      <div>
+        <button
+          type="submit"
+          class="w-full bg-primary text-white py-3 rounded-lg hover:bg-indigo-700 font-semibold transition-all duration-200"
+        >
+          Submit Test Email
+        </button>
+      </div>
+    </form>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="hidden mt-8 flex justify-center">
+      <div class="flex flex-col items-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <p class="mt-4 text-gray-400">Processing email...</p>
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="resultsSection" class="hidden mt-8 space-y-6">
+      <!-- Email Info -->
+      <div class="bg-gray-900 rounded-lg border border-gray-700 p-6">
+        <h3 class="text-2xl font-bold text-primary mb-4">Agent Output</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <p class="text-sm text-gray-400">Email ID</p>
+            <p class="font-semibold text-gray-200" id="resultEmailId">-</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-400">Status</p>
+            <div id="resultStatus"></div>
+          </div>
+          <div>
+            <p class="text-sm text-gray-400">Processing Time</p>
+            <p class="font-semibold text-gray-200" id="resultTime">-</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-400">Human Review Needed</p>
+            <p class="font-semibold text-gray-200" id="resultReview">-</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Classification -->
+      <div class="bg-gray-900 rounded-lg border border-gray-700 p-6">
+        <h4 class="text-xl font-bold text-primary mb-3">Classification</h4>
+        <div class="grid grid-cols-3 gap-4">
+          <div>
+            <p class="text-sm text-gray-400">Category</p>
+            <p class="font-semibold text-gray-200" id="resultCategory">-</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-400">Priority</p>
+            <div id="resultPriority"></div>
+          </div>
+          <div>
+            <p class="text-sm text-gray-400">Confidence</p>
+            <p class="font-semibold text-gray-200" id="resultConfidence">-</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Knowledge Base Context -->
+      <div class="bg-gray-900 rounded-lg border border-gray-700 p-6">
+        <h4 class="text-xl font-bold text-primary mb-3">Knowledge Base Context</h4>
+        <div
+          id="resultContext"
+          class="text-gray-200 text-sm whitespace-pre-wrap max-h-48 overflow-y-auto"
+        >-</div>
+      </div>
+
+      <!-- Generated Response -->
+      <div class="bg-gray-900 rounded-lg border border-gray-700 p-6">
+        <h4 class="text-xl font-bold text-primary mb-3">Generated Response</h4>
+        <div
+          id="resultResponse"
+          class="text-gray-200 whitespace-pre-wrap max-h-64 overflow-y-auto"
+        >-</div>
+      </div>
+
+      <!-- Error -->
+      <div id="resultError" class="hidden bg-red-900 border border-red-700 rounded-lg p-4">
+        <p class="font-bold text-red-400 mb-2">Error</p>
+        <p id="resultErrorText" class="text-red-300 text-sm"></p>
+      </div>
+
+      <!-- View in Inbox -->
+      <div class="mt-4">
+        <a
+          id="viewInboxButton"
+          href="/ui/inbox"
+          class="inline-block bg-primary text-white py-2 px-4 rounded-lg hover:bg-indigo-700 font-semibold transition-all"
+        >
+          View in Inbox
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById("testEmailForm").addEventListener("submit", async function (e) {
+  e.preventDefault();
+
+  const sender = document.getElementById("sender").value;
+  const subject = document.getElementById("subject").value;
+  const body = document.getElementById("body").value;
+
+  document.getElementById("loadingSpinner").classList.remove("hidden");
+  document.getElementById("resultsSection").classList.add("hidden");
+  document.getElementById("resultError").classList.add("hidden");
+
+  try {
+    const response = await fetch("/api/emails/test", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ sender, subject, body }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "Failed to submit email");
+    }
+
+    const data = await response.json();
+
+    document.getElementById("resultEmailId").textContent = data.email_id || "-";
+    document.getElementById("resultCategory").textContent = data.category || "-";
+    document.getElementById("resultConfidence").textContent = data.confidence_score ? (data.confidence_score*100).toFixed(1) + "%" : "-";
+    document.getElementById("resultTime").textContent = data.execution_time_ms ? data.execution_time_ms + "ms" : "-";
+    document.getElementById("resultReview").textContent = data.needs_human_review ? "Yes" : "No";
+
+    // Status
+    const statusBadge = document.createElement("span");
+    statusBadge.className = "inline-block px-3 py-1 rounded-full text-sm font-semibold " + getStatusColor(data.status);
+    statusBadge.textContent = data.status;
+    document.getElementById("resultStatus").innerHTML = "";
+    document.getElementById("resultStatus").appendChild(statusBadge);
+
+    // Priority
+    if (data.priority) {
+      const priorityBadge = document.createElement("span");
+      priorityBadge.className = "inline-block px-3 py-1 rounded-full text-sm font-semibold " + getPriorityColor(data.priority);
+      priorityBadge.textContent = data.priority;
+      document.getElementById("resultPriority").innerHTML = "";
+      document.getElementById("resultPriority").appendChild(priorityBadge);
+    }
+
+    document.getElementById("resultContext").textContent = data.context_summary || "No KB results found";
+    document.getElementById("resultResponse").textContent = data.generated_response || "No response generated";
+
+    if (data.error_message) {
+      document.getElementById("resultError").classList.remove("hidden");
+      document.getElementById("resultErrorText").textContent = data.error_message;
+    }
+
+    document.getElementById("loadingSpinner").classList.add("hidden");
+    document.getElementById("resultsSection").classList.remove("hidden");
+  } catch (error) {
+    document.getElementById("loadingSpinner").classList.add("hidden");
+    document.getElementById("resultError").classList.remove("hidden");
+    document.getElementById("resultErrorText").textContent = error.message;
+    document.getElementById("resultsSection").classList.remove("hidden");
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,476 @@
+{% extends "base.html" %}
+
+{% block title %}FollowUp Monitoring Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-white">FollowUp Monitoring</h2>
+      <p class="text-sm text-gray-400">Operational visibility for DB-based follow-up worker.</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="px-2 py-1 rounded border border-amber-600 text-amber-300 text-xs font-semibold">DEV ONLY</span>
+      <label class="text-sm text-gray-300">Auto Refresh</label>
+      <input id="autoRefreshToggle" type="checkbox" checked class="h-4 w-4 accent-cyan-400" />
+      <label class="text-sm text-gray-300 flex items-center gap-2">
+        <input id="simulateFailureToggle" type="checkbox" class="h-4 w-4 accent-amber-400" />
+        Simulate Failure
+      </label>
+      <button id="createTestFollowupBtn" class="px-3 py-2 rounded bg-violet-600 hover:bg-violet-500 text-white text-sm">Create Test FollowUp</button>
+      <button id="runWorkerBtn" class="px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-sm">Run Worker Now</button>
+      <button id="pingWorkerBtn" class="px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm">Ping Worker</button>
+      <button id="refreshBtn" class="px-3 py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-sm">Refresh</button>
+    </div>
+  </div>
+
+  <div id="devActionMessage" class="hidden p-2 rounded text-sm"></div>
+
+  <div id="workerHealthBanner" class="p-3 rounded border border-gray-700 bg-gray-800 text-sm text-gray-300"></div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div class="bg-gray-800 border border-gray-700 p-4 rounded-lg"><p class="text-gray-400 text-sm">Total</p><p id="statTotal" class="text-2xl font-bold">0</p></div>
+    <div class="bg-gray-800 border border-yellow-700 p-4 rounded-lg"><p class="text-yellow-300 text-sm">Pending</p><p id="statPending" class="text-2xl font-bold text-yellow-200">0</p></div>
+    <div class="bg-gray-800 border border-green-700 p-4 rounded-lg"><p class="text-green-300 text-sm">Executed</p><p id="statExecuted" class="text-2xl font-bold text-green-200">0</p></div>
+    <div class="bg-gray-800 border border-red-700 p-4 rounded-lg"><p class="text-red-300 text-sm">Failed</p><p id="statFailed" class="text-2xl font-bold text-red-200">0</p></div>
+    <div class="bg-gray-800 border border-rose-700 p-4 rounded-lg"><p class="text-rose-300 text-sm">Overdue</p><p id="statOverdue" class="text-2xl font-bold text-rose-200">0</p></div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-800 border border-gray-700 p-4 rounded-lg">
+    <div>
+      <label class="text-xs text-gray-400">Status</label>
+      <select id="filterStatus" class="w-full mt-1 bg-gray-900 border border-gray-700 rounded p-2 text-sm">
+        <option value="">All</option>
+        <option value="pending">pending</option>
+        <option value="processing">processing</option>
+        <option value="executed">executed</option>
+        <option value="failed">failed</option>
+      </select>
+    </div>
+    <div>
+      <label class="text-xs text-gray-400">Type</label>
+      <select id="filterType" class="w-full mt-1 bg-gray-900 border border-gray-700 rounded p-2 text-sm">
+        <option value="">All</option>
+        <option value="reminder">reminder</option>
+        <option value="verification">verification</option>
+        <option value="escalation">escalation</option>
+      </select>
+    </div>
+    <div>
+      <label class="text-xs text-gray-400">Start Date</label>
+      <input id="filterStart" type="datetime-local" class="w-full mt-1 bg-gray-900 border border-gray-700 rounded p-2 text-sm" />
+    </div>
+    <div>
+      <label class="text-xs text-gray-400">End Date</label>
+      <input id="filterEnd" type="datetime-local" class="w-full mt-1 bg-gray-900 border border-gray-700 rounded p-2 text-sm" />
+    </div>
+  </div>
+
+  <div class="overflow-x-auto bg-gray-800 border border-gray-700 rounded-lg">
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-900 text-gray-300">
+        <tr>
+          <th class="px-3 py-2 text-left">ID</th>
+          <th class="px-3 py-2 text-left">Email ID</th>
+          <th class="px-3 py-2 text-left">Type</th>
+          <th class="px-3 py-2 text-left">Status</th>
+          <th class="px-3 py-2 text-left">Scheduled</th>
+          <th class="px-3 py-2 text-left">Executed</th>
+          <th class="px-3 py-2 text-left">Retries</th>
+          <th class="px-3 py-2 text-left">Next Retry</th>
+          <th class="px-3 py-2 text-left">Last Error</th>
+          <th class="px-3 py-2 text-left">Delay</th>
+        </tr>
+      </thead>
+      <tbody id="followupTableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="flex items-center justify-between text-sm text-gray-300">
+    <p id="paginationInfo">0-0 of 0</p>
+    <div class="space-x-2">
+      <button id="prevPage" class="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600">Prev</button>
+      <button id="nextPage" class="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600">Next</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const state = {
+    page: 1,
+    perPage: 20,
+    total: 0,
+    pages: 1,
+    autoRefresh: true,
+    timer: null,
+    refreshRequestId: 0,
+    refreshing: false,
+  };
+
+  function $(id) { return document.getElementById(id); }
+
+  function statusBadge(status, overdue) {
+    const base = "px-2 py-1 rounded text-xs font-semibold";
+    if (status === "executed") return `<span class="${base} bg-green-900 text-green-200">executed</span>`;
+    if (status === "pending") return `<span class="${base} bg-yellow-900 text-yellow-200">pending</span>`;
+    if (status === "processing") return `<span class="${base} bg-blue-900 text-blue-200">processing</span>`;
+    if (status === "failed") return `<span class="${base} bg-red-900 text-red-200">failed</span>`;
+    if (overdue) return `<span class="${base} bg-rose-900 text-rose-200">overdue</span>`;
+    return `<span class="${base} bg-gray-700 text-gray-200">${status}</span>`;
+  }
+
+  function fmtDate(v) {
+    if (!v) return "-";
+    return new Date(v).toLocaleString();
+  }
+
+  function fmtDelay(v) {
+    if (v === null || v === undefined) return "-";
+    return `${v} ms`;
+  }
+
+  function setHealthBanner({ state, text }) {
+    const base = "p-3 rounded border text-sm";
+    const styles = {
+      live: "bg-green-950 border-green-700 text-green-200",
+      idle: "bg-gray-800 border-gray-700 text-gray-300",
+      warning: "bg-amber-950 border-amber-700 text-amber-200",
+      error: "bg-red-950 border-red-700 text-red-200",
+    };
+    $("workerHealthBanner").className = `${base} ${styles[state] || styles.idle}`;
+    $("workerHealthBanner").textContent = text;
+  }
+
+  function setDevActionMessage({ state, text }) {
+    const node = $("devActionMessage");
+    const styles = {
+      success: "bg-green-950 border border-green-700 text-green-200",
+      error: "bg-red-950 border border-red-700 text-red-200",
+      info: "bg-indigo-950 border border-indigo-700 text-indigo-200",
+    };
+    node.className = `p-2 rounded text-sm ${styles[state] || styles.info}`;
+    node.textContent = text;
+  }
+
+  function formatApiError(data, fallbackMessage) {
+    const detail = data?.detail;
+    if (typeof detail === "string") return detail;
+    if (detail && typeof detail === "object") return JSON.stringify(detail);
+    if (typeof data?.message === "string") return data.message;
+    return fallbackMessage;
+  }
+
+  function apiFetch(url, options = {}) {
+    return fetch(url, {
+      cache: "no-store",
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+    });
+  }
+
+  function setRefreshing(isRefreshing, reason = "") {
+    state.refreshing = isRefreshing;
+    const refreshBtn = $("refreshBtn");
+    if (!refreshBtn) return;
+
+    refreshBtn.disabled = isRefreshing;
+    refreshBtn.classList.toggle("opacity-70", isRefreshing);
+    refreshBtn.classList.toggle("cursor-not-allowed", isRefreshing);
+    refreshBtn.textContent = isRefreshing ? "Refreshing..." : "Refresh";
+
+    if (isRefreshing && reason) {
+      setDevActionMessage({ state: "info", text: reason });
+    }
+  }
+
+  function rowStyle(item) {
+    if (item.status === "failed") {
+      return "border-b border-red-700 bg-red-950/35 shadow-[inset_0_0_0_1px_rgba(239,68,68,0.25)]";
+    }
+    if (item.status === "processing") {
+      return "border-b border-blue-700 bg-blue-950/25";
+    }
+    if (item.status === "pending" && (item.retry_count || 0) > 0) {
+      return "border-b border-amber-700 bg-amber-950/30 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.18)]";
+    }
+    if (item.overdue) {
+      return "border-b border-rose-800 bg-rose-950/30";
+    }
+    return "border-b border-gray-700";
+  }
+
+  function retryBadge(item) {
+    const count = item.retry_count || 0;
+    if (item.status === "failed") {
+      return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-900 text-red-200 font-semibold" title="Failed after max retries">${count}</span>`;
+    }
+    if (item.status === "processing") {
+      return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-900 text-blue-200 font-semibold">⏳ ${count}</span>`;
+    }
+    if (item.status === "pending" && count > 0) {
+      return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-900 text-amber-100 font-semibold" title="Retry scheduled due to previous failure">↻ ${count}</span>`;
+    }
+    return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-gray-700 text-gray-200">${count}</span>`;
+  }
+
+  async function fetchStats(requestId) {
+    const res = await apiFetch("/api/followups/stats");
+    const data = await res.json();
+    if (requestId !== state.refreshRequestId) return;
+    $("statTotal").textContent = data.total_followups || 0;
+    $("statPending").textContent = data.pending || 0;
+    $("statExecuted").textContent = data.executed || 0;
+    $("statFailed").textContent = data.failed || 0;
+    $("statOverdue").textContent = data.overdue || 0;
+  }
+
+  async function fetchHealth(requestId) {
+    const res = await apiFetch("/api/followups/health");
+
+    if (!res.ok) {
+      const detail = await res.text();
+      if (requestId !== state.refreshRequestId) return;
+      setHealthBanner({
+        state: "error",
+        text: `Worker: error | Unable to load health (${res.status})${detail ? `: ${detail}` : ""}`,
+      });
+      return;
+    }
+
+    const data = await res.json();
+    if (requestId !== state.refreshRequestId) return;
+
+    const isLive = data.worker_status === "healthy";
+    const healthState = isLive ? "live" : data.worker_status === "idle" ? "idle" : "warning";
+    const label = isLive ? "🟢 LIVE" : data.worker_status === "idle" ? "⚪ IDLE" : "🟠 WARNING";
+    setHealthBanner({
+      state: healthState,
+      text: `${label} | Worker: ${data.worker_status} | Last run: ${data.last_run_time || "never"} | Seconds since run: ${data.time_since_last_run || "n/a"} | Missed cycles: ${data.missed_cycles_count || 0}`,
+    });
+  }
+
+  function buildQuery() {
+    const q = new URLSearchParams();
+    q.set("page", state.page);
+    q.set("per_page", state.perPage);
+
+    const status = $("filterStatus").value;
+    const type = $("filterType").value;
+    const start = $("filterStart").value;
+    const end = $("filterEnd").value;
+
+    if (status) q.set("status", status);
+    if (type) q.set("type", type);
+    if (start) q.set("start_date", new Date(start).toISOString());
+    if (end) q.set("end_date", new Date(end).toISOString());
+
+    return q.toString();
+  }
+
+  async function fetchList(requestId) {
+    const query = buildQuery();
+    const noCacheQuery = query ? `${query}&_ts=${Date.now()}` : `_ts=${Date.now()}`;
+    const res = await apiFetch(`/api/followups?${noCacheQuery}`);
+    const data = await res.json();
+    if (requestId !== state.refreshRequestId) return;
+
+    state.total = data.total || 0;
+    state.pages = data.pages || 1;
+
+    const tbody = $("followupTableBody");
+    tbody.innerHTML = "";
+
+    for (const item of (data.items || [])) {
+      const tr = document.createElement("tr");
+      tr.className = rowStyle(item);
+      tr.innerHTML = `
+        <td class="px-3 py-2">${item.id}</td>
+        <td class="px-3 py-2">${item.email_id}</td>
+        <td class="px-3 py-2 uppercase">${item.type}</td>
+        <td class="px-3 py-2">${statusBadge(item.status, item.overdue)}</td>
+        <td class="px-3 py-2">${fmtDate(item.scheduled_for)}</td>
+        <td class="px-3 py-2">${fmtDate(item.executed_at)}</td>
+        <td class="px-3 py-2">${retryBadge(item)}</td>
+        <td class="px-3 py-2">${fmtDate(item.next_retry_at)}</td>
+        <td class="px-3 py-2 max-w-xs truncate" title="${item.last_error || ""}">${item.last_error || "-"}</td>
+        <td class="px-3 py-2">${fmtDelay(item.delay_ms)}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    const start = state.total === 0 ? 0 : ((state.page - 1) * state.perPage) + 1;
+    const end = Math.min(state.page * state.perPage, state.total);
+    $("paginationInfo").textContent = `${start}-${end} of ${state.total}`;
+
+    $("prevPage").disabled = state.page <= 1;
+    $("nextPage").disabled = state.page >= state.pages;
+  }
+
+  async function refreshDashboard(reason = "") {
+    const requestId = state.refreshRequestId + 1;
+    state.refreshRequestId = requestId;
+    setRefreshing(true, reason);
+
+    try {
+      await Promise.all([
+        fetchStats(requestId),
+        fetchHealth(requestId),
+        fetchList(requestId),
+      ]);
+    } catch (e) {
+      console.error("Followup dashboard refresh failed", e);
+      if (requestId === state.refreshRequestId) {
+        setDevActionMessage({ state: "error", text: e.message || "Dashboard refresh failed" });
+      }
+    } finally {
+      if (requestId === state.refreshRequestId) {
+        setRefreshing(false);
+      }
+    }
+  }
+
+  async function pingWorker() {
+    try {
+      const res = await apiFetch("/api/dev/followup/heartbeat/ping", {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `Ping failed with status ${res.status}`);
+      }
+
+      setHealthBanner({
+        state: "live",
+        text: "🟢 LIVE | Heartbeat updated | Refreshing monitoring data...",
+      });
+      setDevActionMessage({ state: "success", text: "Heartbeat ping succeeded." });
+      await refreshDashboard("Refreshing dashboard after heartbeat ping...");
+    } catch (e) {
+      console.error("Manual heartbeat ping failed", e);
+      setHealthBanner({
+        state: "error",
+        text: `Worker ping failed: ${e.message || "Unknown error"}`,
+      });
+      setDevActionMessage({ state: "error", text: e.message || "Failed to ping worker" });
+    }
+  }
+
+  async function createTestFollowup() {
+    const btn = $("createTestFollowupBtn");
+    const defaultText = "Create Test FollowUp";
+
+    btn.disabled = true;
+    btn.classList.add("opacity-70", "cursor-not-allowed");
+    btn.innerHTML = "<span class=\"inline-block animate-spin mr-2\">⏳</span>Creating...";
+    setDevActionMessage({ state: "info", text: "Creating test follow-up..." });
+
+    try {
+      const res = await apiFetch("/api/dev/followup/create-test", {
+        method: "POST",
+        body: JSON.stringify({ simulate_failure: $("simulateFailureToggle").checked }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(formatApiError(data, `Create test follow-up failed with status ${res.status}`));
+      }
+
+      if (data.status !== "ok") {
+        throw new Error(data.message || "Create test follow-up did not succeed");
+      }
+
+      console.log("Test follow-up created", data);
+      setDevActionMessage({
+        state: "success",
+        text: `Test follow-up created (id=${data.followup_id}, email=${data.email_id}).`,
+      });
+      await refreshDashboard("Refreshing dashboard after test follow-up creation...");
+    } catch (e) {
+      console.error("Create test follow-up failed", e);
+      setDevActionMessage({ state: "error", text: e.message || "Failed to create test follow-up" });
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove("opacity-70", "cursor-not-allowed");
+      btn.textContent = defaultText;
+    }
+  }
+
+  async function runWorkerNow() {
+    const btn = $("runWorkerBtn");
+    const defaultText = "Run Worker Now";
+
+    btn.disabled = true;
+    btn.classList.add("opacity-70", "cursor-not-allowed");
+    btn.innerHTML = "<span class=\"inline-block animate-spin mr-2\">⏳</span>Running...";
+    setDevActionMessage({ state: "info", text: "Executing follow-up worker..." });
+
+    try {
+      const res = await apiFetch("/api/dev/followup/run", {
+        method: "POST",
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(formatApiError(data, `Worker run failed with status ${res.status}`));
+      }
+
+      console.log("Manual worker trigger response", data);
+      const timing = (typeof data.execution_ms === "number") ? ` (${data.execution_ms} ms)` : "";
+      setDevActionMessage({ state: "success", text: `Worker executed successfully${timing}.` });
+      await refreshDashboard("Refreshing dashboard after worker execution...");
+    } catch (e) {
+      console.error("Manual worker trigger failed", e);
+      setDevActionMessage({ state: "error", text: e.message || "Failed to execute worker" });
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove("opacity-70", "cursor-not-allowed");
+      btn.textContent = defaultText;
+    }
+  }
+
+  function setupAutoRefresh() {
+    if (state.timer) clearInterval(state.timer);
+    if (!state.autoRefresh) return;
+    state.timer = setInterval(() => {
+      refreshDashboard("Auto-refreshing dashboard...");
+    }, 15000);
+  }
+
+  $("createTestFollowupBtn").addEventListener("click", createTestFollowup);
+  $("runWorkerBtn").addEventListener("click", runWorkerNow);
+  $("pingWorkerBtn").addEventListener("click", pingWorker);
+  $("refreshBtn").addEventListener("click", () => refreshDashboard("Refreshing dashboard..."));
+  $("autoRefreshToggle").addEventListener("change", (e) => {
+    state.autoRefresh = !!e.target.checked;
+    setupAutoRefresh();
+  });
+
+  $("filterStatus").addEventListener("change", () => { state.page = 1; refreshDashboard("Applying filters..."); });
+  $("filterType").addEventListener("change", () => { state.page = 1; refreshDashboard("Applying filters..."); });
+  $("filterStart").addEventListener("change", () => { state.page = 1; refreshDashboard("Applying filters..."); });
+  $("filterEnd").addEventListener("change", () => { state.page = 1; refreshDashboard("Applying filters..."); });
+
+  $("prevPage").addEventListener("click", () => {
+    if (state.page > 1) {
+      state.page -= 1;
+      refreshDashboard("Loading previous page...");
+    }
+  });
+
+  $("nextPage").addEventListener("click", () => {
+    if (state.page < state.pages) {
+      state.page += 1;
+      refreshDashboard("Loading next page...");
+    }
+  });
+
+  refreshDashboard("Loading dashboard...");
+  setupAutoRefresh();
+</script>
+{% endblock %}

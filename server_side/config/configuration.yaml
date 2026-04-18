@@ -1,0 +1,32 @@
+llm:
+  # Cloud models (optional, keep if you plan to use them)
+  groq:
+    provider: "groq"
+    model_name: "deepseek-r1-distill-llama-70b"
+    temperature: 0
+    max_output_tokens: 2048
+
+  google:
+    provider: "google"
+    model_name: "gemini-2.0-flash"
+    temperature: 0
+    max_output_tokens: 2048
+
+  openai:
+    provider: "openai"
+    model_name: "gpt-4o"
+    temperature: 0
+    max_output_tokens: 2048
+
+  # Local model (available on your machine)
+  ollama:
+    provider: "ollama"
+    model_name: "gemma4:latest"
+    base_url: "http://localhost:11434"
+    temperature: 0
+
+embedding_model:
+  local:
+    model_name: "embeddinggemma:300m"
+    vector_store: "FAISS"
+    retriever_k: 4
