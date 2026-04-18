@@ -26,7 +26,7 @@ The project uses:
 ![Edit Response](client_side/static/media/client_side_view/edit_response.png)
 
 ### 🔁 Follow-ups
-![Follow Ups](client_side/static/media/client_side_view/pngfollows_ups.png)
+![Follow Ups](client_side/static/media/client_side_view/follows_ups.png)
 
 
 ## What This Project Does
