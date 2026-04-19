@@ -16,6 +16,11 @@ The project uses:
 
 ## UI Preview
 
+### 🧪 Real Email View
+![Testing View](client_side/static/media/client_side_view/email_result1.png)
+
+![Testing View](client_side/static/media/client_side_view/email_result2.png)
+
 ### 🧪 Testing View
 ![Testing View](client_side/static/media/client_side_view/testing_view.png)
 
